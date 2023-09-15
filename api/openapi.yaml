@@ -1,0 +1,79 @@
+openapi: 3.0.3
+info:
+  title: Service Discovery By Serf
+  description: |-
+    Service Discovery By Serf
+  termsOfService: http://swagger.io/terms/
+  contact:
+    email: kotaro.otaka@gmail.com
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  version: 1.0.0
+externalDocs:
+  description: 分散Go意
+  url: https://github.com/otakakot/gunsan-go-i
+servers:
+  - url: http://localhost:8080
+tags:
+  - name: cluster
+    description: Cluster
+  - name: health
+    description: Health
+paths:
+  /clusters:
+    get:
+      tags:
+        - cluster
+      summary: List Clusters
+      description: List Clusters
+      operationId: listCluster
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListClusterResponse'
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+        '500':
+          description: Internal Server Error
+  /health:
+    get:
+      tags:
+        - health
+      description: Health Check
+      summary: health check
+      operationId: health
+      responses:
+        '200':
+          description: OK
+        '500':
+          description: Internal Server Error
+components:
+  schemas:
+    Cluster:
+      type: object
+      properties:
+        id:
+          type: string
+        rpcAddr:
+          type: string
+        isLeader:
+          type: boolean
+      required:
+        - "id"
+        - "rpcAddr"
+        - "isLeader"
+    Clusters:
+      type: array
+      items:
+        $ref: '#/components/schemas/Cluster'
+    ListClusterResponse:
+      type: object
+      properties:
+        clusters:
+          $ref: "#/components/schemas/Clusters"
