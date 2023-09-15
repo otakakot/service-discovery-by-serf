@@ -1,0 +1,46 @@
+services:
+  service-discovery-by-serf-1:
+    container_name: service-discovery-by-serf-1
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8881:8888
+    environment:
+      RPC_PORT: 8888
+      SERF_PORT: 8080
+      BIND_ADDR: :8080
+      START_JOIN_ADDRS: ""
+    restart: always
+    volumes:
+      - ../:/app
+  service-discovery-by-serf-2:
+    container_name: service-discovery-by-serf-2
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8882:8888
+    environment:
+      RPC_PORT: 8888
+      SERF_PORT: 8080
+      BIND_ADDR: :8080
+      START_JOIN_ADDRS: service-discovery-by-serf-1:8080
+    restart: always
+    volumes:
+      - ../:/app
+  service-discovery-by-serf-3:
+    container_name: service-discovery-by-serf-3
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8883:8888
+    environment:
+      RPC_PORT: 8888
+      SERF_PORT: 8080
+      BIND_ADDR: :8080
+      START_JOIN_ADDRS: service-discovery-by-serf-1:8080
+    restart: always
+    volumes:
+      - ../:/app
