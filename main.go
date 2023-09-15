@@ -35,6 +35,7 @@ func main() {
 	// Serf addresses to join
 	startJoinAddrs := os.Getenv("START_JOIN_ADDRS")
 	if startJoinAddrs == "" {
+		slog.Info("No start join addresses specified, will join self")
 		startJoinAddrs = fmt.Sprintf("127.0.0.1:%s", serfPort)
 	}
 
@@ -145,19 +146,19 @@ func (ms *Membership) EventHandler() {
 		switch event.EventType() {
 		case serf.EventMemberJoin:
 			for _, member := range event.(serf.MemberEvent).Members {
+				slog.Info(fmt.Sprintf("member %s joined", member.Name))
 				if ms.IsLocal(member) {
-					slog.Info("is local")
+					slog.Info("member is local")
 					continue
 				}
-				slog.Info(fmt.Sprintf("member: %s joined", member.Name))
 			}
 		case serf.EventMemberLeave:
 			for _, member := range event.(serf.MemberEvent).Members {
+				slog.Info(fmt.Sprintf("member %s left", member.Name))
 				if ms.IsLocal(member) {
-					slog.Info("is local")
+					slog.Info("member is local")
 					continue
 				}
-				slog.Info(fmt.Sprintf("member: %s left", member.Name))
 			}
 		}
 	}
