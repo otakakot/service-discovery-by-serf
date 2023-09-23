@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -48,7 +49,15 @@ func main() {
 
 	go ms.EventHandler()
 
-	if err := ms.JoinSerf(existing); err != nil {
+	if err := Retry(
+		func() error {
+			if err := ms.Join(existing); err != nil {
+				return fmt.Errorf("failed to join serf: %v", err)
+			}
+
+			return nil
+		},
+	); err != nil {
 		panic(err)
 	}
 
@@ -82,7 +91,11 @@ func main() {
 
 	slog.Info("Shutting down HTTP server")
 
-	if err := ms.LeaveSerf(); err != nil {
+	if err := ms.Leave(); err != nil {
+		panic(err)
+	}
+
+	if err := ms.Serf.Shutdown(); err != nil {
 		panic(err)
 	}
 
@@ -170,15 +183,15 @@ func (ms *Membership) IsLocal(
 	return ms.Serf.LocalMember().Name == member.Name
 }
 
-func (ms *Membership) MembersSerf() []serf.Member {
+func (ms *Membership) Members() []serf.Member {
 	return ms.Serf.Members()
 }
 
-func (ms *Membership) LeaveSerf() error {
+func (ms *Membership) Leave() error {
 	return ms.Serf.Leave()
 }
 
-func (ms *Membership) JoinSerf(
+func (ms *Membership) Join(
 	existing []string,
 ) error {
 	slog.Info(fmt.Sprintf("Joining Serf: %v", existing))
@@ -197,9 +210,9 @@ func (ms *Membership) ListCluster(
 ) (api.ListClusterRes, error) {
 	slog.InfoContext(ctx, "call list cluster")
 
-	clusters := make([]api.Cluster, len(ms.MembersSerf()))
+	clusters := make([]api.Cluster, len(ms.Members()))
 
-	for i, member := range ms.MembersSerf() {
+	for i, member := range ms.Members() {
 		slog.InfoContext(ctx, fmt.Sprintf("member: %s", member.Name))
 		clusters[i] = api.Cluster{
 			ID:       member.Name,
@@ -219,4 +232,30 @@ func (ms *Membership) Health(
 	slog.InfoContext(ctx, "call health")
 
 	return &api.HealthOK{}, nil
+}
+
+func Retry(
+	fn func() error,
+) error {
+	attempt := 0
+
+	for {
+		slog.Info(fmt.Sprintf("Attempt %d", attempt))
+
+		if attempt > 3 {
+			return fmt.Errorf("failed after %d attempts", attempt)
+		}
+
+		if err := fn(); err == nil {
+			return nil
+		} else {
+			slog.Warn(err.Error())
+		}
+
+		interval := int(math.Pow(2, float64(attempt)))
+
+		time.Sleep(time.Duration(interval) * time.Second)
+
+		attempt++
+	}
 }
