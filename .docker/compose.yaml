@@ -10,7 +10,7 @@ services:
       RPC_PORT: 8888
       SERF_PORT: 8080
       BIND_ADDR: :8080
-      START_JOIN_ADDRS: ""
+      START_JOIN_ADDRS: service-discovery-by-serf-2:8080,service-discovery-by-serf-3:8080
     restart: always
     volumes:
       - ../:/app
@@ -25,7 +25,7 @@ services:
       RPC_PORT: 8888
       SERF_PORT: 8080
       BIND_ADDR: :8080
-      START_JOIN_ADDRS: service-discovery-by-serf-1:8080
+      START_JOIN_ADDRS: service-discovery-by-serf-1:8080,service-discovery-by-serf-3:8080
     restart: always
     volumes:
       - ../:/app
@@ -40,7 +40,7 @@ services:
       RPC_PORT: 8888
       SERF_PORT: 8080
       BIND_ADDR: :8080
-      START_JOIN_ADDRS: service-discovery-by-serf-1:8080
+      START_JOIN_ADDRS: service-discovery-by-serf-1:8080,service-discovery-by-serf-2:8080
     restart: always
     volumes:
       - ../:/app
