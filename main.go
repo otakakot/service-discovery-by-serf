@@ -57,6 +57,7 @@ func main() {
 
 			return nil
 		},
+		3,
 	); err != nil {
 		panic(err)
 	}
@@ -78,18 +79,18 @@ func main() {
 	defer stop()
 
 	go func() {
-		if err := srv.ListenAndServe(); err != nil {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			panic(err)
 		}
 	}()
 
 	<-ctx.Done()
 
+	slog.Info("start shutdown")
+
 	ctx, cansel := context.WithTimeout(context.Background(), 5*time.Second)
 
 	defer cansel()
-
-	slog.Info("Shutting down HTTP server")
 
 	if err := ms.Leave(); err != nil {
 		panic(err)
@@ -102,6 +103,8 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		panic(err)
 	}
+
+	slog.Info("done shutdown")
 }
 
 type Membership struct {
@@ -236,15 +239,16 @@ func (ms *Membership) Health(
 
 func Retry(
 	fn func() error,
+	retries int,
 ) error {
 	attempt := 0
 
 	for {
-		slog.Info(fmt.Sprintf("Attempt %d", attempt))
-
-		if attempt > 3 {
+		if attempt > retries {
 			return fmt.Errorf("failed after %d attempts", attempt)
 		}
+
+		slog.Info(fmt.Sprintf("Attempt %d", attempt))
 
 		if err := fn(); err == nil {
 			return nil
