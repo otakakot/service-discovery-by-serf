@@ -42,16 +42,16 @@ func main() {
 
 	existing := strings.Split(startJoinAddrs, ",")
 
-	ms, err := NewMembership(bindAddr, rpcPort, nodeName, existing)
+	dis, err := NewDiscovery(bindAddr, rpcPort, nodeName, existing)
 	if err != nil {
 		panic(err)
 	}
 
-	go ms.EventHandler()
+	go dis.EventHandler()
 
 	if err := Retry(
 		func() error {
-			if err := ms.Join(existing); err != nil {
+			if err := dis.Join(existing); err != nil {
 				return fmt.Errorf("failed to join serf: %v", err)
 			}
 
@@ -62,7 +62,7 @@ func main() {
 		panic(err)
 	}
 
-	hdl, err := api.NewServer(ms)
+	hdl, err := api.NewServer(dis)
 	if err != nil {
 		panic(err)
 	}
@@ -92,11 +92,11 @@ func main() {
 
 	defer cansel()
 
-	if err := ms.Leave(); err != nil {
+	if err := dis.Leave(); err != nil {
 		panic(err)
 	}
 
-	if err := ms.Serf.Shutdown(); err != nil {
+	if err := dis.Serf.Shutdown(); err != nil {
 		panic(err)
 	}
 
@@ -107,21 +107,21 @@ func main() {
 	slog.Info("done shutdown")
 }
 
-type Membership struct {
+type Discovery struct {
 	Serf           *serf.Serf
-	Events         chan serf.Event
-	BindAddr       string
-	NodeName       string
+	Events         chan serf.Event // イベントチャネル:ノードがクラスタに参加または離脱したときに Serf のイベントを受信する手段
+	NodeName       string          // ノード名:クラスタ全体におけるノードの一意な識別子
+	BindAddr       string          // ゴシッププロトコルのためのアドレス
+	StartJoinAddrs []string        // 新たなノードが既存のクラスタに参加するように設定する方法
 	Tags           map[string]string
-	StartJoinAddrs []string
 }
 
-func NewMembership(
+func NewDiscovery(
 	bindAddr string,
 	rpcPort string,
 	nodeName string,
 	startJoinAddrs []string,
-) (*Membership, error) {
+) (*Discovery, error) {
 	host, _, err := net.SplitHostPort(bindAddr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to split bind address: %v", err)
@@ -146,7 +146,7 @@ func NewMembership(
 		return nil, fmt.Errorf("failed to create serf: %v", err)
 	}
 
-	return &Membership{
+	return &Discovery{
 		Serf:     sf,
 		Events:   events,
 		NodeName: nodeName,
@@ -157,13 +157,13 @@ func NewMembership(
 	}, nil
 }
 
-func (ms *Membership) EventHandler() {
-	for event := range ms.Events {
+func (dis *Discovery) EventHandler() {
+	for event := range dis.Events {
 		switch event.EventType() {
 		case serf.EventMemberJoin:
 			for _, member := range event.(serf.MemberEvent).Members {
 				slog.Info(fmt.Sprintf("member %s joined", member.Name))
-				if ms.IsLocal(member) {
+				if dis.IsLocal(member) {
 					slog.Info("member is local")
 					continue
 				}
@@ -171,7 +171,16 @@ func (ms *Membership) EventHandler() {
 		case serf.EventMemberLeave:
 			for _, member := range event.(serf.MemberEvent).Members {
 				slog.Info(fmt.Sprintf("member %s left", member.Name))
-				if ms.IsLocal(member) {
+				if dis.IsLocal(member) {
+					slog.Info("member is local")
+					continue
+				}
+			}
+		default:
+			slog.Info(fmt.Sprintf("handle event %s", event))
+			for _, member := range event.(serf.MemberEvent).Members {
+				slog.Info(fmt.Sprintf("member %s", member.Name))
+				if dis.IsLocal(member) {
 					slog.Info("member is local")
 					continue
 				}
@@ -180,42 +189,42 @@ func (ms *Membership) EventHandler() {
 	}
 }
 
-func (ms *Membership) IsLocal(
+func (dis *Discovery) IsLocal(
 	member serf.Member,
 ) bool {
-	return ms.Serf.LocalMember().Name == member.Name
+	return dis.Serf.LocalMember().Name == member.Name
 }
 
-func (ms *Membership) Members() []serf.Member {
-	return ms.Serf.Members()
+func (dis *Discovery) Members() []serf.Member {
+	return dis.Serf.Members()
 }
 
-func (ms *Membership) Leave() error {
-	return ms.Serf.Leave()
+func (dis *Discovery) Leave() error {
+	return dis.Serf.Leave()
 }
 
-func (ms *Membership) Join(
+func (dis *Discovery) Join(
 	existing []string,
 ) error {
 	slog.Info(fmt.Sprintf("Joining Serf: %v", existing))
 
-	if _, err := ms.Serf.Join(existing, true); err != nil {
+	if _, err := dis.Serf.Join(existing, true); err != nil {
 		return fmt.Errorf("failed to join: %v", err)
 	}
 
 	return nil
 }
 
-var _ api.Handler = (*Membership)(nil)
+var _ api.Handler = (*Discovery)(nil)
 
-func (ms *Membership) ListCluster(
+func (dis *Discovery) ListCluster(
 	ctx context.Context,
 ) (api.ListClusterRes, error) {
 	slog.InfoContext(ctx, "call list cluster")
 
-	clusters := make([]api.Cluster, len(ms.Members()))
+	clusters := make([]api.Cluster, len(dis.Members()))
 
-	for i, member := range ms.Members() {
+	for i, member := range dis.Members() {
 		slog.InfoContext(ctx, fmt.Sprintf("member: %s", member.Name))
 		clusters[i] = api.Cluster{
 			ID:       member.Name,
@@ -229,7 +238,7 @@ func (ms *Membership) ListCluster(
 	}, nil
 }
 
-func (ms *Membership) Health(
+func (dis *Discovery) Health(
 	ctx context.Context,
 ) (api.HealthRes, error) {
 	slog.InfoContext(ctx, "call health")
