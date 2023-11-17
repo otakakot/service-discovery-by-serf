@@ -7,9 +7,9 @@ require (
 	github.com/go-faster/jx v1.1.0
 	github.com/hashicorp/serf v0.10.1
 	github.com/ogen-go/ogen v0.74.0
-	go.opentelemetry.io/otel v1.18.0
-	go.opentelemetry.io/otel/metric v1.18.0
-	go.opentelemetry.io/otel/trace v1.18.0
+	go.opentelemetry.io/otel v1.21.0
+	go.opentelemetry.io/otel/metric v1.21.0
+	go.opentelemetry.io/otel/trace v1.21.0
 )
 
 require (
@@ -18,7 +18,7 @@ require (
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-faster/yaml v0.4.6 // indirect
-	github.com/go-logr/logr v1.2.4 // indirect
+	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c // indirect
 	github.com/google/uuid v1.3.1 // indirect
