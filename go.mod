@@ -3,7 +3,7 @@ module github.com/otakakot/service-discovery-by-serf
 go 1.21.1
 
 require (
-	github.com/go-faster/errors v0.6.1
+	github.com/go-faster/errors v0.7.1
 	github.com/go-faster/jx v1.1.0
 	github.com/hashicorp/serf v0.10.1
 	github.com/ogen-go/ogen v0.74.0
