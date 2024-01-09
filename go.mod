@@ -1,6 +1,6 @@
 module github.com/otakakot/service-discovery-by-serf
 
-go 1.21.1
+go 1.21.6
 
 require (
 	github.com/go-faster/errors v0.6.1
