@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hashicorp/go-immutable-radix"
+	iradix "github.com/hashicorp/go-immutable-radix"
 )
 
 // Config is used to configure metrics settings
@@ -46,6 +46,11 @@ var globalMetrics atomic.Value // *Metrics
 func init() {
 	// Initialize to a blackhole sink to avoid errors
 	globalMetrics.Store(&Metrics{sink: &BlackholeSink{}})
+}
+
+// Default returns the shared global metrics instance.
+func Default() *Metrics {
+	return globalMetrics.Load().(*Metrics)
 }
 
 // DefaultConfig provides a sane default configuration
@@ -92,12 +97,27 @@ func NewGlobal(conf *Config, sink MetricSink) (*Metrics, error) {
 }
 
 // Proxy all the methods to the globalMetrics instance
+
+// Set gauge key and value with 32 bit precision
 func SetGauge(key []string, val float32) {
 	globalMetrics.Load().(*Metrics).SetGauge(key, val)
 }
 
+// Set gauge key and value with 32 bit precision
 func SetGaugeWithLabels(key []string, val float32, labels []Label) {
 	globalMetrics.Load().(*Metrics).SetGaugeWithLabels(key, val, labels)
+}
+
+// Set gauge key and value with 64 bit precision
+// The Sink needs to implement PrecisionGaugeMetricSink, in case it doesn't,  the metric value won't be set and ingored instead
+func SetPrecisionGauge(key []string, val float64) {
+	globalMetrics.Load().(*Metrics).SetPrecisionGauge(key, val)
+}
+
+// Set gauge key, value with 64 bit precision, and labels
+// The Sink needs to implement PrecisionGaugeMetricSink, in case it doesn't, the metric value won't be set and ingored instead
+func SetPrecisionGaugeWithLabels(key []string, val float64, labels []Label) {
+	globalMetrics.Load().(*Metrics).SetPrecisionGaugeWithLabels(key, val, labels)
 }
 
 func EmitKey(key []string, val float32) {
@@ -138,4 +158,16 @@ func UpdateFilter(allow, block []string) {
 // values for a given label). See README.md for more information about usage.
 func UpdateFilterAndLabels(allow, block, allowedLabels, blockedLabels []string) {
 	globalMetrics.Load().(*Metrics).UpdateFilterAndLabels(allow, block, allowedLabels, blockedLabels)
+}
+
+// Shutdown disables metric collection, then blocks while attempting to flush metrics to storage.
+// WARNING: Not all MetricSink backends support this functionality, and calling this will cause them to leak resources.
+// This is intended for use immediately prior to application exit.
+func Shutdown() {
+	m := globalMetrics.Load().(*Metrics)
+	// Swap whatever MetricSink is currently active with a BlackholeSink. Callers must not have a
+	// reason to expect that calls to the library will successfully collect metrics after Shutdown
+	// has been called.
+	globalMetrics.Store(&Metrics{sink: &BlackholeSink{}})
+	m.Shutdown()
 }

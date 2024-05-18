@@ -50,6 +50,8 @@ type Request struct {
 	Context context.Context
 	// OperationName is the ogen operation name. It is guaranteed to be unique and not empty.
 	OperationName string
+	// OperationSummary is the ogen operation summary.
+	OperationSummary string
 	// OperationID is the spec operation ID, if any.
 	OperationID string
 	// Body is the operation request body. May be nil, if the operation has not body.
@@ -58,6 +60,11 @@ type Request struct {
 	Params Parameters
 	// Raw is the raw http request.
 	Raw *http.Request
+}
+
+// SetContext sets Context in Request.
+func (r *Request) SetContext(ctx context.Context) {
+	r.Context = ctx
 }
 
 // Response is response type for middleware.

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -9,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -25,7 +28,7 @@ func main() {
 	serfPort := os.Getenv("SERF_PORT")
 
 	// Address to bind Serf on
-	bindAddr := fmt.Sprintf(":%s", serfPort)
+	bindAddr := ":" + serfPort
 
 	// Port for raft
 	rpcPort := os.Getenv("RPC_PORT")
@@ -34,11 +37,7 @@ func main() {
 	nodeName, _ := os.Hostname()
 
 	// Serf addresses to join
-	startJoinAddrs := os.Getenv("START_JOIN_ADDRS")
-	if startJoinAddrs == "" {
-		slog.Info("No start join addresses specified, will join self")
-		startJoinAddrs = fmt.Sprintf("127.0.0.1:%s", serfPort)
-	}
+	startJoinAddrs := cmp.Or(os.Getenv("START_JOIN_ADDRS"), "127.0.0.1:"+serfPort)
 
 	existing := strings.Split(startJoinAddrs, ",")
 
@@ -100,7 +99,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := srv.Shutdown(ctx); err != nil {
+	if err := srv.Shutdown(ctx); err != nil && errors.Is(err, http.ErrServerClosed) {
 		panic(err)
 	}
 
@@ -257,7 +256,7 @@ func Retry(
 			return fmt.Errorf("failed after %d attempts", attempt)
 		}
 
-		slog.Info(fmt.Sprintf("Attempt %d", attempt))
+		slog.Info("attempt: " + strconv.Itoa(attempt))
 
 		if err := fn(); err == nil {
 			return nil

@@ -1,6 +1,6 @@
 package openapi
 
-import "github.com/ogen-go/ogen/internal/location"
+import "github.com/ogen-go/ogen/location"
 
 // SecurityScheme defines one of security schemes used in the security requirement.
 type SecurityScheme struct {
@@ -32,6 +32,8 @@ type Security struct {
 	BearerFormat     string
 	Flows            OAuthFlows
 	OpenIDConnectURL string
+
+	XOgenCustomSecurity bool
 
 	location.Pointer `json:"-" yaml:"-"`
 }
