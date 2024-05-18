@@ -145,12 +145,17 @@ func (s *Cluster) UnmarshalJSON(data []byte) error {
 // Encode encodes Clusters as json.
 func (s Clusters) Encode(e *jx.Encoder) {
 	unwrapped := []Cluster(s)
-
-	e.ArrStart()
-	for _, elem := range unwrapped {
-		elem.Encode(e)
+	if unwrapped == nil {
+		e.ArrEmpty()
+		return
 	}
-	e.ArrEnd()
+	if unwrapped != nil {
+		e.ArrStart()
+		for _, elem := range unwrapped {
+			elem.Encode(e)
+		}
+		e.ArrEnd()
+	}
 }
 
 // Decode decodes Clusters from json.

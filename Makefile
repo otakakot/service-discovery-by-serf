@@ -9,6 +9,12 @@ help: ## display this help screen
 gen: ## auto generate code
 	@go generate ./...
 
+.PHONY: update
+update: ## go modules update
+	@go get -u -t ./...
+	@go mod tidy
+	@go mod vendor
+
 .PHONY: up
 up: ## docker compose up with air hot reload
 	@docker compose --project-name ${APP_NAME} --file ./.docker/compose.yaml up -d

@@ -20,6 +20,22 @@ import (
 	"github.com/ogen-go/ogen/uri"
 )
 
+// Invoker invokes operations described by OpenAPI v3 specification.
+type Invoker interface {
+	// Health invokes health operation.
+	//
+	// Health Check.
+	//
+	// GET /health
+	Health(ctx context.Context) (HealthRes, error)
+	// ListCluster invokes listCluster operation.
+	//
+	// List Clusters.
+	//
+	// GET /clusters
+	ListCluster(ctx context.Context) (ListClusterRes, error)
+}
+
 // Client implements OAS client.
 type Client struct {
 	serverURL *url.URL
@@ -75,7 +91,6 @@ func (c *Client) requestURL(ctx context.Context) *url.URL {
 // GET /health
 func (c *Client) Health(ctx context.Context) (HealthRes, error) {
 	res, err := c.sendHealth(ctx)
-	_ = res
 	return res, err
 }
 
@@ -148,7 +163,6 @@ func (c *Client) sendHealth(ctx context.Context) (res HealthRes, err error) {
 // GET /clusters
 func (c *Client) ListCluster(ctx context.Context) (ListClusterRes, error) {
 	res, err := c.sendListCluster(ctx)
-	_ = res
 	return res, err
 }
 
