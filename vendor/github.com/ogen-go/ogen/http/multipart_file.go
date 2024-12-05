@@ -5,15 +5,15 @@ import (
 	"io"
 	"mime/multipart"
 	"net/textproto"
+	"slices"
 	"strings"
-
-	"golang.org/x/exp/slices"
 )
 
 // MultipartFile is multipart form file.
 type MultipartFile struct {
 	Name   string
 	File   io.Reader
+	Size   int64
 	Header textproto.MIMEHeader
 }
 
