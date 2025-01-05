@@ -25,13 +25,13 @@ func main() {
 	slog.Info("Starting service-discovery")
 
 	// Port for serf
-	serfPort := os.Getenv("SERF_PORT")
+	serfPort := cmp.Or(os.Getenv("SERF_PORT"), "8080")
 
 	// Address to bind Serf on
 	bindAddr := ":" + serfPort
 
 	// Port for raft
-	rpcPort := os.Getenv("RPC_PORT")
+	rpcPort := cmp.Or(os.Getenv("RPC_PORT"), "8888")
 
 	// Unique server ID
 	nodeName, _ := os.Hostname()
@@ -40,8 +40,6 @@ func main() {
 	startJoinAddrsStr := cmp.Or(os.Getenv("START_JOIN_ADDRS"), "127.0.0.1:"+serfPort)
 
 	startJoinAddrs := strings.Split(startJoinAddrsStr, ",")
-
-	slog.Info(fmt.Sprintf("noteName: %s", nodeName))
 
 	mem, err := NewMembership(bindAddr, rpcPort, nodeName, startJoinAddrs)
 	if err != nil {
@@ -54,7 +52,7 @@ func main() {
 
 	if err := Retry(
 		func() error {
-			if err := mem.Join(startJoinAddrs); err != nil {
+			if err := mem.Join(mem.StartJoinAddrs); err != nil {
 				return fmt.Errorf("join serf: %w", err)
 			}
 
@@ -103,7 +101,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := srv.Shutdown(ctx); err != nil && errors.Is(err, http.ErrServerClosed) {
+	if err := srv.Shutdown(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		panic(err)
 	}
 
@@ -179,19 +177,21 @@ func (mem *Membership) EventHandler() {
 					slog.Info("member is local")
 					continue
 				}
+				// TODO
 			}
-		case serf.EventMemberLeave:
+		case serf.EventMemberLeave, serf.EventMemberFailed:
 			for _, member := range event.(serf.MemberEvent).Members {
 				slog.Info(fmt.Sprintf("member %s left", member.Name))
 				if mem.IsLocal(member) {
 					slog.Info("member is local")
 					continue
 				}
+				// TODO
 			}
 		default:
 			slog.Info(fmt.Sprintf("handle event %s", event))
 			for _, member := range event.(serf.MemberEvent).Members {
-				slog.Info(fmt.Sprintf("member %s", member.Name))
+				slog.Info(fmt.Sprintf("member %s default", member.Name))
 				if mem.IsLocal(member) {
 					slog.Info("member is local")
 					continue
@@ -240,7 +240,7 @@ func (mem *Membership) ListCluster(
 		slog.InfoContext(ctx, fmt.Sprintf("member: %s", member.Name))
 		clusters[i] = api.Cluster{
 			ID:       member.Name,
-			RpcAddr:  "",
+			RpcAddr:  member.Addr.String(),
 			IsLeader: false,
 		}
 	}
