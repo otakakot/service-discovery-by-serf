@@ -37,23 +37,25 @@ func main() {
 	nodeName, _ := os.Hostname()
 
 	// Serf addresses to join
-	startJoinAddrs := cmp.Or(os.Getenv("START_JOIN_ADDRS"), "127.0.0.1:"+serfPort)
+	startJoinAddrsStr := cmp.Or(os.Getenv("START_JOIN_ADDRS"), "127.0.0.1:"+serfPort)
 
-	existing := strings.Split(startJoinAddrs, ",")
+	startJoinAddrs := strings.Split(startJoinAddrsStr, ",")
 
-	dis, err := NewDiscovery(bindAddr, rpcPort, nodeName, existing)
+	slog.Info(fmt.Sprintf("noteName: %s", nodeName))
+
+	mem, err := NewMembership(bindAddr, rpcPort, nodeName, startJoinAddrs)
 	if err != nil {
 		panic(err)
 	}
 
-	go dis.EventHandler()
+	go mem.EventHandler()
 
 	retryCount := 3
 
 	if err := Retry(
 		func() error {
-			if err := dis.Join(existing); err != nil {
-				return fmt.Errorf("failed to join serf: %v", err)
+			if err := mem.Join(startJoinAddrs); err != nil {
+				return fmt.Errorf("join serf: %w", err)
 			}
 
 			return nil
@@ -63,7 +65,7 @@ func main() {
 		panic(err)
 	}
 
-	hdl, err := api.NewServer(dis)
+	hdl, err := api.NewServer(mem)
 	if err != nil {
 		panic(err)
 	}
@@ -93,11 +95,11 @@ func main() {
 
 	defer cansel()
 
-	if err := dis.Leave(); err != nil {
+	if err := mem.Leave(); err != nil {
 		panic(err)
 	}
 
-	if err := dis.Serf.Shutdown(); err != nil {
+	if err := mem.Serf.Shutdown(); err != nil {
 		panic(err)
 	}
 
@@ -108,7 +110,7 @@ func main() {
 	slog.Info("done shutdown")
 }
 
-type Discovery struct {
+type Membership struct {
 	Serf           *serf.Serf
 	Events         chan serf.Event // イベントチャネル:ノードがクラスタに参加または離脱したときに Serf のイベントを受信する手段
 	NodeName       string          // ノード名:クラスタ全体におけるノードの一意な識別子
@@ -117,20 +119,20 @@ type Discovery struct {
 	Tags           map[string]string
 }
 
-func NewDiscovery(
+func NewMembership(
 	bindAddr string,
 	rpcPort string,
 	nodeName string,
 	startJoinAddrs []string,
-) (*Discovery, error) {
+) (*Membership, error) {
 	host, _, err := net.SplitHostPort(bindAddr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to split bind address: %v", err)
+		return nil, fmt.Errorf("split bind address: %w", err)
 	}
 
 	addr, err := net.ResolveTCPAddr("tcp", bindAddr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve tcp addr: %v", err)
+		return nil, fmt.Errorf("resolve tcp addr: %w", err)
 	}
 
 	cfg := serf.DefaultConfig()
@@ -138,33 +140,42 @@ func NewDiscovery(
 	cfg.Init()
 
 	cfg.MemberlistConfig.BindAddr = addr.IP.String()
+
 	cfg.MemberlistConfig.BindPort = addr.Port
+
 	events := make(chan serf.Event)
+
 	cfg.EventCh = events
+
+	tags := map[string]string{
+		"rpc_addr": net.JoinHostPort(host, rpcPort),
+	}
+
+	cfg.Tags = tags
+
+	cfg.NodeName = nodeName
 
 	sf, err := serf.Create(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create serf: %v", err)
+		return nil, fmt.Errorf("create serf: %w", err)
 	}
 
-	return &Discovery{
-		Serf:     sf,
-		Events:   events,
-		NodeName: nodeName,
-		Tags: map[string]string{
-			"rpc_addr": net.JoinHostPort(host, rpcPort),
-		},
+	return &Membership{
+		Serf:           sf,
+		Events:         events,
+		NodeName:       nodeName,
+		Tags:           tags,
 		StartJoinAddrs: startJoinAddrs,
 	}, nil
 }
 
-func (dis *Discovery) EventHandler() {
-	for event := range dis.Events {
+func (mem *Membership) EventHandler() {
+	for event := range mem.Events {
 		switch event.EventType() {
 		case serf.EventMemberJoin:
 			for _, member := range event.(serf.MemberEvent).Members {
 				slog.Info(fmt.Sprintf("member %s joined", member.Name))
-				if dis.IsLocal(member) {
+				if mem.IsLocal(member) {
 					slog.Info("member is local")
 					continue
 				}
@@ -172,7 +183,7 @@ func (dis *Discovery) EventHandler() {
 		case serf.EventMemberLeave:
 			for _, member := range event.(serf.MemberEvent).Members {
 				slog.Info(fmt.Sprintf("member %s left", member.Name))
-				if dis.IsLocal(member) {
+				if mem.IsLocal(member) {
 					slog.Info("member is local")
 					continue
 				}
@@ -181,7 +192,7 @@ func (dis *Discovery) EventHandler() {
 			slog.Info(fmt.Sprintf("handle event %s", event))
 			for _, member := range event.(serf.MemberEvent).Members {
 				slog.Info(fmt.Sprintf("member %s", member.Name))
-				if dis.IsLocal(member) {
+				if mem.IsLocal(member) {
 					slog.Info("member is local")
 					continue
 				}
@@ -190,42 +201,42 @@ func (dis *Discovery) EventHandler() {
 	}
 }
 
-func (dis *Discovery) IsLocal(
+func (mem *Membership) IsLocal(
 	member serf.Member,
 ) bool {
-	return dis.Serf.LocalMember().Name == member.Name
+	return mem.Serf.LocalMember().Name == member.Name
 }
 
-func (dis *Discovery) Members() []serf.Member {
-	return dis.Serf.Members()
+func (mem *Membership) Members() []serf.Member {
+	return mem.Serf.Members()
 }
 
-func (dis *Discovery) Leave() error {
-	return dis.Serf.Leave()
+func (mem *Membership) Leave() error {
+	return mem.Serf.Leave()
 }
 
-func (dis *Discovery) Join(
+func (mem *Membership) Join(
 	existing []string,
 ) error {
 	slog.Info(fmt.Sprintf("Joining Serf: %v", existing))
 
-	if _, err := dis.Serf.Join(existing, true); err != nil {
-		return fmt.Errorf("failed to join: %v", err)
+	if _, err := mem.Serf.Join(existing, true); err != nil {
+		return fmt.Errorf("join: %w", err)
 	}
 
 	return nil
 }
 
-var _ api.Handler = (*Discovery)(nil)
+var _ api.Handler = (*Membership)(nil)
 
-func (dis *Discovery) ListCluster(
+func (mem *Membership) ListCluster(
 	ctx context.Context,
 ) (api.ListClusterRes, error) {
 	slog.InfoContext(ctx, "call list cluster")
 
-	clusters := make([]api.Cluster, len(dis.Members()))
+	clusters := make([]api.Cluster, len(mem.Members()))
 
-	for i, member := range dis.Members() {
+	for i, member := range mem.Members() {
 		slog.InfoContext(ctx, fmt.Sprintf("member: %s", member.Name))
 		clusters[i] = api.Cluster{
 			ID:       member.Name,
@@ -239,7 +250,7 @@ func (dis *Discovery) ListCluster(
 	}, nil
 }
 
-func (dis *Discovery) Health(
+func (dis *Membership) Health(
 	ctx context.Context,
 ) (api.HealthRes, error) {
 	slog.InfoContext(ctx, "call health")
@@ -255,7 +266,7 @@ func Retry(
 
 	for {
 		if attempt > retries {
-			return fmt.Errorf("failed after %d attempts", attempt)
+			return fmt.Errorf("after %d attempts", attempt)
 		}
 
 		slog.Info("attempt: " + strconv.Itoa(attempt))
