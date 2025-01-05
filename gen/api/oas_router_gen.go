@@ -206,10 +206,10 @@ func (s *Server) FindPath(method string, u *url.URL) (r Route, _ bool) {
 				}
 
 				if len(elem) == 0 {
+					// Leaf node.
 					switch method {
 					case "GET":
-						// Leaf: ListCluster
-						r.name = "ListCluster"
+						r.name = ListClusterOperation
 						r.summary = "List Clusters"
 						r.operationID = "listCluster"
 						r.pathPattern = "/clusters"
@@ -231,10 +231,10 @@ func (s *Server) FindPath(method string, u *url.URL) (r Route, _ bool) {
 				}
 
 				if len(elem) == 0 {
+					// Leaf node.
 					switch method {
 					case "GET":
-						// Leaf: Health
-						r.name = "Health"
+						r.name = HealthOperation
 						r.summary = "health check"
 						r.operationID = "health"
 						r.pathPattern = "/health"

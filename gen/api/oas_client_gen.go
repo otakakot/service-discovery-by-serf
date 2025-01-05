@@ -12,7 +12,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
-	semconv "go.opentelemetry.io/otel/semconv/v1.19.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	"go.opentelemetry.io/otel/trace"
 
 	ht "github.com/ogen-go/ogen/http"
@@ -97,7 +97,7 @@ func (c *Client) Health(ctx context.Context) (HealthRes, error) {
 func (c *Client) sendHealth(ctx context.Context) (res HealthRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("health"),
-		semconv.HTTPMethodKey.String("GET"),
+		semconv.HTTPRequestMethodKey.String("GET"),
 		semconv.HTTPRouteKey.String("/health"),
 	}
 
@@ -106,14 +106,14 @@ func (c *Client) sendHealth(ctx context.Context) (res HealthRes, err error) {
 	defer func() {
 		// Use floating point division here for higher precision (instead of Millisecond method).
 		elapsedDuration := time.Since(startTime)
-		c.duration.Record(ctx, float64(float64(elapsedDuration)/float64(time.Millisecond)), metric.WithAttributes(otelAttrs...))
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
 	}()
 
 	// Increment request counter.
 	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
 
 	// Start a span for this request.
-	ctx, span := c.cfg.Tracer.Start(ctx, "Health",
+	ctx, span := c.cfg.Tracer.Start(ctx, HealthOperation,
 		trace.WithAttributes(otelAttrs...),
 		clientSpanKind,
 	)
@@ -169,7 +169,7 @@ func (c *Client) ListCluster(ctx context.Context) (ListClusterRes, error) {
 func (c *Client) sendListCluster(ctx context.Context) (res ListClusterRes, err error) {
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("listCluster"),
-		semconv.HTTPMethodKey.String("GET"),
+		semconv.HTTPRequestMethodKey.String("GET"),
 		semconv.HTTPRouteKey.String("/clusters"),
 	}
 
@@ -178,14 +178,14 @@ func (c *Client) sendListCluster(ctx context.Context) (res ListClusterRes, err e
 	defer func() {
 		// Use floating point division here for higher precision (instead of Millisecond method).
 		elapsedDuration := time.Since(startTime)
-		c.duration.Record(ctx, float64(float64(elapsedDuration)/float64(time.Millisecond)), metric.WithAttributes(otelAttrs...))
+		c.duration.Record(ctx, float64(elapsedDuration)/float64(time.Millisecond), metric.WithAttributes(otelAttrs...))
 	}()
 
 	// Increment request counter.
 	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
 
 	// Start a span for this request.
-	ctx, span := c.cfg.Tracer.Start(ctx, "ListCluster",
+	ctx, span := c.cfg.Tracer.Start(ctx, ListClusterOperation,
 		trace.WithAttributes(otelAttrs...),
 		clientSpanKind,
 	)

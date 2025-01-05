@@ -48,6 +48,8 @@ func main() {
 
 	go dis.EventHandler()
 
+	retryCount := 3
+
 	if err := Retry(
 		func() error {
 			if err := dis.Join(existing); err != nil {
@@ -56,7 +58,7 @@ func main() {
 
 			return nil
 		},
-		3,
+		retryCount,
 	); err != nil {
 		panic(err)
 	}
