@@ -4,7 +4,7 @@ go 1.23.4
 
 require github.com/armon/go-metrics v0.5.3 // indirect
 
-replace github.com/armon/go-metrics => github.com/hashicorp/go-metrics v0.5.3
+replace github.com/armon/go-metrics => github.com/hashicorp/go-metrics v0.5.4
 
 require (
 	github.com/go-faster/errors v0.7.1
