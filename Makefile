@@ -13,7 +13,6 @@ gen: ## auto generate code
 update: ## go modules update
 	@go get -u -t ./...
 	@go mod tidy
-	@go mod vendor
 
 .PHONY: up
 up: ## docker compose up with air hot reload
